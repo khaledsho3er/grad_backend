@@ -1,5 +1,3 @@
 flask 
 flask_cors
-json
 g4f
-os
