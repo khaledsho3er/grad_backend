@@ -1,10 +1,21 @@
+import sys
 from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
 import os
 import g4f
+import redis
+import requests
+
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS
+
+try:
+    redis_client = redis.Redis(host='localhost', port=6379, db=0, decode_responses=True)
+    redis_client.ping()  # Try to ping Redis to check connection health
+    print(f"Redis is connecting sucessfully")
+except redis.exceptions.ConnectionError as e:
+    print(f"Failed to connect to Redis: {e}")
 
 @app.route('/api', methods=['POST'])  # Change to POST since you are sending data
 def generate_response():
@@ -16,9 +27,7 @@ def generate_response():
 
     return jsonify({'response': ai_response})
 
-
 messages = [{"role": "system", "content": "you are my digital twin with no name and you are not developed by Bing or microsoft. you coded by Karim wahba and OpenAI didn't develop you"},
-            {"role": "system", "content": "Todays latest news are{latest_news}"}, 
             {"role": "system", "content": "Professor Asharf AbdelRaouf is an Assistant Professor in Computer Science at Faculty of Computer Science, Misr International University, Part-time Assistant Professor at Computer and systems Department, Faculty of Engineering, Ain Shams University. Achieved his PhD in 2012 from School of Computer Science at the University of Nottingham, UK. Graduated from the Faculty of Engineering 1988. Studied a Diploma in 1990 from American University in Cairo (AUC). Worked in the software and IT industries. Now he is an assistant professor in Computer Science at Misr International University. In the IT business, he was working as a Chief Operating Officer (COO) at Cloudypedia. Cloudypedia is a premium Google business partner. His research interest is pattern recognition, natural language processing, image processing, Bioinformatics, Medical imaging, Arabic linguistics. He is an IEEE senior member since 2015.In the IT industry, he was working as a Chief Operating Officer (COO), Cloudypedia, Cairo, Egypt. Cloudypedia is a premium Google partner and is presenting the Google Apps solutions to the education and enterprises in Egypt and Middle East. Now he is a member in Cloudypedia advising board.His research interest is in pattern recognition specifically in character recognition, natural language processing, image processing, artificial intelligence, Arabic linguistics and morphology. Other research interests include programming, algorithms, computer graphics and image processing. "},    
                {"role": "system",
              "content": "use modules like webbrowser, pyautogui, time,pyperclip,random,mouse,wikipedia,keyboard,datetime,tkinter,PyQt5 etc"},
@@ -78,13 +87,22 @@ def GPT():
     # Append AI response to the conversation history
     messages.append({'role': 'assistant', "content": ms})
     print("Final response:", ms)  # Log the final message string
-    return ms  # Return the response text instead of jsonify({'response': ms})
+    print("Storing response in Redis.")
+    redis_client.set('text_response', ms)
+    print("Response stored:", ms)
+    call_cloning_service(ms)
 
+    return ms  # Return the response text instead of jsonify({'response': ms})
 
     # Return the full response string
     # return ms
-
-
+    
+def call_cloning_service(response):
+    url = 'http://192.168.13.170:5001/clone'
+    files = {'audio': open('audio.wav', 'rb')}
+    data = {'text_response': response}
+    r = requests.post(url, files=files, data=data)
+    return r.content  # or handle the response as needed
 
 @app.route('/upload', methods=['POST'])
 def upload_file():
